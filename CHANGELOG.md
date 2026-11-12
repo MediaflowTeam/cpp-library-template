@@ -14,6 +14,11 @@ starting from an empty Unreleased section.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-12
+
+The first versioned release of the template. The entries describe the changes
+since the template had no version.
+
 ### Added
 
 - `TEMPLATE_VERSION` file that records which template version a project is
@@ -73,6 +78,9 @@ starting from an empty Unreleased section.
 - CI jobs get a read-only `GITHUB_TOKEN`, and checkout does not keep the token
   for the steps after it. A new CI run for the same branch or pull request
   cancels the older one.
+- CI also runs when `dev` is updated and for pull requests targeting `dev`,
+  so that a change that breaks the build is found before a release is
+  prepared.
 - CI actions are pinned to commit SHAs and use releases that run on
   Node.js 24, such as `actions/checkout` 7.0.1.
 - The placeholder project name is no longer `project_name`, whose uppercase
