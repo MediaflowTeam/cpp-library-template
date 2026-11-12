@@ -1,13 +1,17 @@
 name: CI
 
+# CI runs on the long-lived branches that lead to a release, as described
+# in docs/release-branching.md.
 on:
   push:
     branches:
       - main
+      - dev
       - "release/**"
   pull_request:
     branches:
       - main
+      - dev
       - "release/**"
   workflow_dispatch:
 

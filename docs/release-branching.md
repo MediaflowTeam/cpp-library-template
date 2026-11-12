@@ -31,27 +31,28 @@ without version-order ambiguity.
 
 ## CI Policy
 
-The default GitHub Actions CI trigger is intentionally release-oriented:
+The default GitHub Actions CI runs on every long-lived branch that leads to a
+release:
 
-- CI runs when `main` is updated.
-- CI runs when a `release/**` branch is updated.
-- CI runs for pull requests targeting `main` or `release/**`.
+- CI runs when `main`, `dev`, or a `release/**` branch is updated.
+- CI runs for pull requests targeting `main`, `dev`, or `release/**`.
 - CI can be started manually with `workflow_dispatch`.
-- `dev` does not run CI by default.
-- A new run for the same branch or pull request cancels the older one, also on
-  `main` and `release/**`.
+- A new run for the same branch or pull request cancels the older one, on
+  every branch including `main`.
 
-The `dev` branch is an integration branch for upcoming work, but this template
-does not force every update to run the full CI matrix. Developers are expected
-to run the local quality gate before publishing changes when practical:
+`dev` runs CI so that a change that breaks the build is found when it reaches
+`dev`, not when the next release is prepared. Feature and fix branches run CI
+through their pull requests to `dev`; pushing to them alone does not start a
+run. Developers are expected to run the local quality gate before publishing
+changes when practical:
 
 ```sh
 python3 scripts/quality.py check
 ```
 
-Projects that want stricter integration can opt in by adding `dev` to the
-workflow branch filters. Projects that actively maintain old support lines can
-also add `support/**` to the same filters.
+Projects that want fewer CI runs can remove `dev` from the workflow branch
+filters. Projects that actively maintain old support lines can add
+`support/**` to the same filters.
 
 ## Normal Development
 
