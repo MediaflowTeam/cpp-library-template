@@ -6,6 +6,7 @@ import contextlib
 import io
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -35,6 +36,7 @@ VERSION_OUTPUTS = {
     "LLVM (http://llvm.org/):\n  LLVM version 21.1.6\n  Optimized build.": "21.1.6",
     "Ubuntu LLVM version 21.1.8\n  Optimized build.": "21.1.8",
     "Debian clang version 19.1.7 (3+b1)\nTarget: x86_64-pc-linux-gnu": "19.1.7",
+    "Debian clang version 21.1.8 (3~bpo13+2)\nTarget: x86_64-pc-linux-gnu": "21.1.8",
     "cmake version 4.2.3\n\nCMake suite maintained and supported by Kitware": "4.2.3",
 }
 
@@ -85,6 +87,22 @@ class ToolVersionsContractTest(unittest.TestCase):
         self.assertRegex(doc, rf"\n\| Doxygen \| {re.escape(doxygen.group(1))} \|")
         self.assertIn("(docs/tool-versions.md)", README.read_text(encoding="utf-8"))
 
+    def test_doc_recommends_clang_with_the_llvm_release(self) -> None:
+        major, minor = self.recommended[tool_versions.LLVM_REFERENCE_TOOL]
+        doc = VERSIONS_DOC.read_text(encoding="utf-8")
+        clang_rows = [
+            line for line in doc.splitlines() if line.startswith("| clang |")
+        ]
+
+        self.assertRegex(
+            doc,
+            rf"\n\| clang \| {major}\.{minor} \|",
+            "Expected a '| clang | "
+            f"{major}.{minor} |' row in docs/tool-versions.md: the clang "
+            f"recommendation must match {tool_versions.LLVM_REFERENCE_TOOL}; "
+            f"got clang rows: {clang_rows!r}.",
+        )
+
     def test_every_ci_job_installs_and_verifies_the_recommended_versions(self) -> None:
         self.assertTrue(self.jobs)
         for name, job in self.jobs.items():
@@ -116,6 +134,124 @@ class ToolVersionsContractTest(unittest.TestCase):
         self.assertIn('-r "$script_dir/tool-requirements.txt"', script)
         self.assertRegex(script, r"\ndoxygen_sha256=[0-9a-f]{64}\n")
         self.assertIn("sha256sum -c -", script)
+
+    def test_linux_tools_script_installs_the_recommended_clang(self) -> None:
+        script = LINUX_TOOLS_SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIsNone(
+            re.search(r"clang(\+\+)?-[0-9]", script),
+            "install_linux_tools.sh must not hardcode an LLVM version; it must "
+            "read the version from tool-requirements.txt.",
+        )
+
+        version_lines = [
+            line
+            for line in script.splitlines()
+            if "clang-format==" in line and "tool-requirements.txt" in line
+        ]
+        self.assertTrue(
+            version_lines,
+            "install_linux_tools.sh must read the clang-format major version "
+            "from tool-requirements.txt.",
+        )
+        self.assertTrue(
+            any("sed" in line for line in version_lines),
+            "Expected a sed expression for the clang-format major version, "
+            f"got: {version_lines!r}",
+        )
+
+        self.assertRegex(
+            script,
+            r'packages="\$packages clang-\$[A-Za-z_][A-Za-z0-9_]*"',
+            "install_linux_tools.sh must install clang-<major>, not the "
+            "distribution's clang package.",
+        )
+        self.assertNotRegex(
+            script,
+            r'packages="\$packages clang"',
+            "install_linux_tools.sh still installs the plain clang package.",
+        )
+
+        for token in (
+            "/etc/os-release",
+            "-backports",
+            "deb.debian.org",
+            "apt-cache madison",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(
+                    token,
+                    script,
+                    f"Expected {token!r} in the backports fallback of "
+                    "install_linux_tools.sh.",
+                )
+        self.assertNotIn(
+            "apt-cache show",
+            script,
+            "install_linux_tools.sh must use apt-cache madison: apt-cache "
+            "show succeeds for a referenced package with no installable "
+            "candidate.",
+        )
+
+        for tool in ("clang", "clang++"):
+            with self.subTest(tool=tool):
+                self.assertRegex(
+                    script,
+                    rf'ln -sf "[^"]+" "\$venv_dir/bin/{re.escape(tool)}"',
+                    f"Expected a link to {tool} in $venv_dir/bin.",
+                )
+
+        install = re.search(r"apt-get install(?:[^\n]*\\\n)*[^\n]*", script)
+        self.assertIsNotNone(
+            install,
+            "Expected an apt-get install command in install_linux_tools.sh.",
+        )
+        self.assertNotRegex(
+            install.group(0),
+            r"\s-t\s",
+            "apt-get install must not use -t; backports packages are "
+            "installed without raising the priority of the whole source.",
+        )
+
+    def test_linux_tools_script_extracts_the_recommended_clang_major(self) -> None:
+        script = LINUX_TOOLS_SCRIPT.read_text(encoding="utf-8")
+        match = re.search(r"(?m)^\s*llvm_major=\$\((.*)\)\s*$", script)
+        self.assertIsNotNone(
+            match,
+            "Expected install_linux_tools.sh to assign llvm_major from a "
+            "command substitution.",
+        )
+        command = match.group(1)
+        quoted_requirements = shlex.quote(str(REQUIREMENTS_FILE))
+        command = command.replace(
+            '"$script_dir/tool-requirements.txt"', quoted_requirements
+        )
+        self.assertNotEqual(
+            command,
+            match.group(1),
+            "Expected the version command to read "
+            "$script_dir/tool-requirements.txt.",
+        )
+
+        result = subprocess.run(
+            ["sh", "-c", command],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(
+            result.returncode,
+            0,
+            "Expected the version command to succeed, got "
+            f"{result.returncode}: {result.stderr}",
+        )
+        self.assertEqual(
+            result.stdout.strip(),
+            str(self.recommended["clang-format"][0]),
+            "Expected the extracted major version to match the clang-format "
+            f"recommendation, got {result.stdout.strip()!r}.",
+        )
 
     def test_version_parsing(self) -> None:
         for output, version in VERSION_OUTPUTS.items():
