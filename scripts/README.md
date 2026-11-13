@@ -112,9 +112,9 @@ python3 scripts/tool_versions.py --strict
 python3 scripts/tool_versions.py --strict --tool clang
 ```
 
-Without `--strict`, a different or missing tool only prints a warning. CI uses `--strict`, which fails instead. `--tool` also checks another LLVM tool, such as `clang`, against the recommended LLVM version; CI does not use it, because its Clang rows build with Debian's clang 19. `quality.py` does not check versions itself. When a tool it runs is not on `PATH`, it prints one error line that names the tool and points to `docs/tool-versions.md`, then exits with status 1.
+Without `--strict`, a different or missing tool only prints a warning. CI uses `--strict`, which fails instead. `--tool` also checks another LLVM tool, `clang` or `clang++`, against the recommended LLVM version; the CI Clang rows use `--tool clang++`. `quality.py` does not check versions itself. When a tool it runs is not on `PATH`, it prints one error line that names the tool and points to `docs/tool-versions.md`, then exits with status 1.
 
-`install_linux_tools.sh` sets up a Debian or Ubuntu system, such as the `debian:13-slim` image that the CI jobs use. It installs GCC, Python, git, and GoogleTest with `apt-get`, then creates a virtual environment and installs `tool-requirements.txt` into it. With `--clang`, it also installs Debian's or Ubuntu's clang; with `--doxygen`, the pinned Doxygen release after checking its SHA-256, and with `--gcovr`, the pinned gcovr release from PyPI. Run it as root or with `sudo`, then add the environment's `bin` directory to `PATH`:
+`install_linux_tools.sh` sets up a Debian or Ubuntu system, such as the `debian:13-slim` image that the CI jobs use. It installs GCC, Python, git, and GoogleTest with `apt-get`, then creates a virtual environment and installs `tool-requirements.txt` into it. With `--clang`, it also installs clang from the same LLVM release as clang-format, from Debian's backports when the Debian release does not have it, and links `clang` and `clang++` to it in the environment's `bin` directory; with `--doxygen`, the pinned Doxygen release after checking its SHA-256, and with `--gcovr`, the pinned gcovr release from PyPI. Run it as root or with `sudo`, then add the environment's `bin` directory to `PATH`:
 
 ```sh
 sh scripts/install_linux_tools.sh [--clang] [--doxygen] [--gcovr] /opt/tools

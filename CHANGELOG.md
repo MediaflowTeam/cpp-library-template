@@ -14,6 +14,20 @@ starting from an empty Unreleased section.
 
 ## [Unreleased]
 
+### Changed
+
+- The CI Clang build uses clang 21, the same LLVM release as clang-format and
+  clang-tidy, instead of Debian 13's clang 19. `install_linux_tools.sh --clang`
+  installs `clang-N`, where N is the LLVM major version in
+  `tool-requirements.txt`, adds Debian's backports source when the Debian
+  release does not have that package, and links `clang` and `clang++` to it in
+  the tools directory. The CI Clang rows check the compiler version with
+  `tool_versions.py --tool clang++`, and `docs/tool-versions.md` lists clang
+  21.1 as the recommended version for Clang builds.
+- `docs/tool-versions.md` recommends GCC 14.2, the version CI uses, and notes
+  that the ABI of C++20 library features is stable only from GCC 16. On Ubuntu 24.04, `--clang` stops with an
+  error, because the release has no clang 21.
+
 ## [0.1.0] - 2026-11-12
 
 The first versioned release of the template. The entries describe the changes

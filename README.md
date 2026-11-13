@@ -4,7 +4,7 @@
 
 The template should stay small. Individual libraries may add their own dependencies, modules, examples, tools, and platform-specific build logic, but they should keep the public layout and package interface consistent.
 
-The template supports Linux only, with GCC or Clang; CI builds with GCC 14 and Clang 19 on Debian 13. MSVC and clang-cl stop the CMake configure step with an error. On Windows, use WSL; on macOS, use a Linux container or virtual machine.
+The template supports Linux only, with GCC or Clang; CI builds with GCC 14 and Clang 21 on Debian 13. MSVC and clang-cl stop the CMake configure step with an error. On Windows, use WSL; on macOS, use a Linux container or virtual machine.
 
 ## Quick Start
 
@@ -56,7 +56,7 @@ Issue forms and the pull request template live under `.github/`.
 
 The quality gate expects CMake, GCC or Clang with C++20 support, `clang-format`, `clang-tidy`, and GoogleTest.
 
-CMake 4.2 or newer is required: the CMake files declare it as their minimum version. This repository recommends clang-format and clang-tidy 21.1 and CMake 4.2, the versions that CI uses. Apart from the CMake minimum, these are recommendations, not requirements: other versions usually work, but formatting and `clang-tidy` results can differ from CI. See [Tool Versions](docs/tool-versions.md) for the reasons and for installing the recommended versions from PyPI. To compare your tools with the recommendations, run:
+CMake 4.2 or newer is required: the CMake files declare it as their minimum version. This repository recommends clang-format and clang-tidy 21.1, GCC 14.2 or clang 21.1 as the compiler, and CMake 4.2, the versions that CI uses. Apart from the CMake minimum, these are recommendations, not requirements: other versions usually work, but formatting and `clang-tidy` results can differ from CI. See [Tool Versions](docs/tool-versions.md) for the reasons and for installing the recommended versions from PyPI. To compare your tools with the recommendations, run:
 
 ```sh
 python3 scripts/tool_versions.py
