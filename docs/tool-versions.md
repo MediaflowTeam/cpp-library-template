@@ -21,13 +21,15 @@ minimum version. Newer CMake releases work.
 | --- | --- | --- |
 | clang-format | 21.1 | Formatting output differs between minor releases. |
 | clang-tidy | 21.1 | New releases add and extend checks, and `.clang-tidy` treats every warning as an error. |
+| clang | 21.1 | The compiler, when you build with Clang. The same LLVM release as clang-format and clang-tidy; the CI Clang build checks it with `tool_versions.py --tool clang++`. |
+| GCC | 14.2 | The compiler, when you build with GCC: Debian 13's version, which CI uses. Later GCC 14 releases only fix bugs, so any 14.x works the same. GCC 14 implements all of C++20 except modules. The ABI of C++20 library features is stable only from GCC 16, so build libraries that pass C++20 types across their interfaces with one GCC major version. CI does not check the version. |
 | CMake | 4.2 | The version that CI builds with, and also the minimum: the CMake files declare `cmake_minimum_required(VERSION 4.2)`. Newer versions work. |
 | Doxygen | 1.15 | Only needed for the `docs` preset. Use 1.13 or newer: older versions do not report undocumented namespaces. |
 | gcovr | 8.8 | Only needed for coverage reports (`scripts/coverage.py`). Needs Python 3.10 or newer. |
 | Ninja | any | The version does not affect results. |
 
-Only major.minor matters. Patch releases of clang-format 21.1 and clang-tidy
-21.1 give the same results, so any 21.1.x is fine. LLVM publishes only N.1.x
+Only major.minor matters. Patch releases of clang-format, clang-tidy, and
+clang 21.1 give the same results, so any 21.1.x is fine. LLVM publishes only N.1.x
 releases for each major version, so 21.1 also means LLVM 21.
 
 `scripts/tool-requirements.txt` holds the recommended versions of the tools
@@ -43,8 +45,8 @@ python3 scripts/tool_versions.py
 The script prints the version of each tool on `PATH` next to the recommended
 version. A different or missing tool only produces a warning, and the script
 exits with status 0. CI runs it with `--strict`, which fails instead.
-`--tool clang` also checks clang against the recommended LLVM release. CI does
-not use it: its Clang rows build with Debian's clang 19, see
+`--tool clang` or `--tool clang++` also checks the clang compiler against the
+recommended LLVM release. The CI Clang rows use `--tool clang++`, see
 [What CI Uses](#what-ci-uses).
 
 ## Install the Recommended Versions
@@ -61,10 +63,17 @@ export PATH="$HOME/.venvs/cpp-tools/bin:$PATH"
 Keep the virtual environment outside the repository: `quality.py` checks every
 C++ file under the repository root, and some packages contain C++ headers.
 
+PyPI does not provide the clang compiler. On Debian and Ubuntu,
+`scripts/install_linux_tools.sh --clang` installs clang 21 and links `clang`
+and `clang++` into the virtual environment, see [Linux Image](#linux-image).
+
 Distribution packages also provide the recommended versions:
 
-- Ubuntu 26.04: `sudo apt-get install clang-format clang-tidy cmake doxygen`
-  installs clang-format and clang-tidy 21.1, CMake 4.2, and Doxygen 1.15.
+- Ubuntu 26.04: `sudo apt-get install clang clang-format clang-tidy cmake doxygen`
+  installs clang, clang-format, and clang-tidy 21.1, CMake 4.2, and Doxygen
+  1.15.
+- Debian 13: the `clang-21` package in `trixie-backports` provides clang 21.1;
+  Debian 13's own `clang` is 19.
 - Doxygen: the [release binaries](https://github.com/doxygen/doxygen/releases)
   run on other distributions.
 
@@ -78,12 +87,14 @@ Every CI job installs the recommended versions and runs
 
 | Runner | Compilers | Tools |
 | --- | --- | --- |
-| `debian:13-slim` container on `ubuntu-24.04` | GCC 14 and clang 19 from Debian | PyPI; Doxygen 1.15.0 release |
+| `debian:13-slim` container on `ubuntu-24.04` | GCC 14.2 from Debian; clang 21 from Debian 13 backports | PyPI; Doxygen 1.15.0 release |
 
-Every job builds with GCC 14. The quality job also builds with clang 19, which
-`install_linux_tools.sh --clang` installs from Debian. It is there so that CI
-builds with a second compiler; it is not a recommended LLVM release, and its
-version does not follow clang-format and clang-tidy.
+Every job builds with GCC 14.2. The quality job also builds with clang 21, the
+same LLVM release as clang-format and clang-tidy, so that CI builds with a
+second compiler. `install_linux_tools.sh --clang` installs it from Debian's
+`trixie-backports`, because Debian 13 itself ships clang 19, and links
+`clang++` to it in the tools directory. The Clang rows check its version with
+`tool_versions.py --strict --tool clang++`.
 
 GoogleTest comes from Debian. Its version does not affect results.
 
@@ -122,11 +133,18 @@ CI environment is defined in this repository rather than by the runner image.
 
 The script has two parts:
 
-- **Distribution packages**: GCC, Python, git, and GoogleTest, from `apt-get`,
-  and with `--clang`, Debian's clang. Their versions do not need to match a recommendation. The script
-  works on Debian and Ubuntu images, such as `debian:13-slim`, `ubuntu:24.04`,
-  and `ubuntu:26.04`; for another distribution, replace this part with its
+- **Distribution packages**: GCC, Python, git, and GoogleTest, from `apt-get`.
+  Their versions do not need to match a recommendation. The script works on
+  Debian and Ubuntu images, such as `debian:13-slim`, `ubuntu:24.04`, and
+  `ubuntu:26.04`; for another distribution, replace this part with its
   package manager.
+- **Clang, with `--clang`**: the `clang-N` package, where N is the LLVM major
+  version of clang-format in `tool-requirements.txt`, and `clang` and
+  `clang++` links to it in the virtual environment. When the distribution
+  does not provide that package, the script adds Debian's
+  `<codename>-backports` source on Debian and stops with an error elsewhere.
+  Debian 13 gets clang 21 from `trixie-backports`, and Ubuntu 26.04 provides
+  it directly; Ubuntu 24.04 does not have it.
 - **Tools with recommended versions**: clang-format, clang-tidy, CMake, and
   Ninja from PyPI; with `--doxygen`, the pinned Doxygen release, checked
   against its SHA-256; and with `--gcovr`, the pinned gcovr release from PyPI. This part is the same on every Linux image with glibc
@@ -161,10 +179,10 @@ the `tsan` preset locally.
 
 ## Change a Recommendation
 
-1. Update `scripts/tool-requirements.txt` and this page. For LLVM, also update
-   the Chocolatey LLVM version and the version in the LLVM cache key and
-   directory in `.github/workflows/ci.yml`, which
-   `scripts/ci_cache_contract_test.py` checks; for Doxygen,
+1. Update `scripts/tool-requirements.txt` and this page. For LLVM, the CI
+   Clang build follows: `install_linux_tools.sh --clang` installs `clang-N`
+   for the new major version, so check that Debian 13 or its backports
+   provide that package; for Doxygen,
    update the version and SHA-256 in `scripts/install_linux_tools.sh`, and for
    gcovr, `gcovr_version` in the same script. For
    CMake, the recommendation is also the minimum version: update

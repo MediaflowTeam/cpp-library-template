@@ -295,6 +295,11 @@ class CompilerOptionsContractTest(unittest.TestCase):
             job, r"(?m)^          - compiler: clang\n            cxx: clang\+\+$"
         )
         self.assertIn("matrix.compiler == 'clang' && '--clang'", job)
+        self.assertIn(
+            "python scripts/tool_versions.py --strict "
+            "${{ matrix.compiler == 'clang' && '--tool clang++' || '' }}",
+            job,
+        )
         self.assertIn("-DCMAKE_CXX_COMPILER=${{ matrix.cxx }}", job)
 
 
